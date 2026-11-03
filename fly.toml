@@ -1,0 +1,52 @@
+# fly.toml — Fly.io deploy config for drift
+#
+# First time:
+#   fly volumes create drift_data --size 1 --region iad
+#   fly deploy
+#
+# Change `app` to a name you own (fly apps create <name>) and keep the volume
+# region the same as primary_region.
+
+app = "drift-feed"
+primary_region = "iad"
+
+kill_signal = "SIGINT"
+kill_timeout = "5s"
+
+[build]
+  dockerfile = "Dockerfile"
+
+[env]
+  PORT = "8080"
+  STORAGE_DIR = "/data"
+  SEED_DEMO = "1"
+  WEB_CONCURRENCY = "1"
+  WEB_THREADS = "4"
+
+[http_service]
+  internal_port = 8080
+  force_https = true
+  auto_stop_machines = "stop"
+  auto_start_machines = true
+  min_machines_running = 0
+  processes = ["app"]
+
+  [[http_service.checks]]
+    # First boot seeds the demo feed before gunicorn starts (~15-20s), so give
+    # the machine room to come up without being marked unhealthy.
+    grace_period = "60s"
+    interval = "30s"
+    method = "GET"
+    timeout = "5s"
+    path = "/api/health"
+
+# SQLite database + uploaded media live here. One machine only: a volume is
+# attached to a single machine, so do not scale this app beyond one instance.
+[[mounts]]
+  source = "drift_data"
+  destination = "/data"
+
+[[vm]]
+  cpu_kind = "shared"
+  cpus = 1
+  memory = "512mb"

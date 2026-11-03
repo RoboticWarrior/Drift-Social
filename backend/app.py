@@ -16,8 +16,13 @@ from flask import Flask, g, jsonify, request, send_from_directory
 from werkzeug.exceptions import RequestEntityTooLarge
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-DATA_DIR = os.path.join(BASE_DIR, "data")
-UPLOAD_DIR = os.path.join(BASE_DIR, "uploads")
+
+# The database and uploaded media live under STORAGE_DIR so a container can
+# mount a persistent volume there (Fly.io mounts one at /data). Unset, it falls
+# back to backend/ and local development behaves exactly as before.
+STORAGE_DIR = os.path.abspath(os.environ.get("STORAGE_DIR") or BASE_DIR)
+DATA_DIR = os.path.join(STORAGE_DIR, "data")
+UPLOAD_DIR = os.path.join(STORAGE_DIR, "uploads")
 DB_PATH = os.path.join(DATA_DIR, "app.db")
 DIST_DIR = os.path.abspath(os.path.join(BASE_DIR, "..", "frontend", "dist"))
 
@@ -365,4 +370,10 @@ init_db(connect())
 
 
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 5000)), debug=True)
+    # Production runs through gunicorn (see entrypoint.sh); this is the local
+    # server, so debug stays off unless FLASK_DEBUG is set explicitly.
+    app.run(
+        host="0.0.0.0",
+        port=int(os.environ.get("PORT", 5000)),
+        debug=os.environ.get("FLASK_DEBUG", "").lower() in {"1", "true", "yes"},
+    )

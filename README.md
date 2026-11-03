@@ -36,6 +36,32 @@ cd frontend && npm run build     # writes frontend/dist
 cd ../backend && python3 app.py  # Flask serves the built app at :5000
 ```
 
+## Deploy on Fly.io
+
+The repo ships a `Dockerfile` (multi-stage: Vite build, then Python 3.12 +
+gunicorn), a `fly.toml`, and an `entrypoint.sh` that seeds the demo feed once
+per volume and then starts gunicorn.
+
+```bash
+fly apps create <your-app-name>          # then set `app` in fly.toml
+fly volumes create drift_data --size 1 --region iad
+fly deploy
+fly open
+```
+
+The database and uploaded media live under `/data`, which is a persistent
+volume, so they survive deploys and restarts. A volume is attached to exactly
+one machine, so keep this app at a single instance. `auto_stop_machines` lets
+it sleep when idle; the first request after a sleep takes a few seconds, and
+`fly logs` streams the access log.
+
+- `SEED_DEMO=0` starts with an empty feed instead of the demo posts.
+- `STORAGE_DIR` moves the data directory (defaults to `/data` in the image,
+  `backend/` when running locally).
+- The image contains no ffmpeg, so a fresh volume is seeded with photos, an
+  animated GIF and text. Add `apt-get install -y ffmpeg` to the Dockerfile if
+  you also want the two seeded video posts.
+
 ## What the app does
 
 - **Composer** at the top of the feed: text plus up to 6 photos/videos, upload
@@ -73,8 +99,11 @@ cd ../backend && python3 app.py  # Flask serves the built app at :5000
 - `backend/data/app.db` — SQLite (`posts`, `media`, `likes`)
 - `backend/uploads/` — uploaded media
 
-Both are gitignored. Delete `backend/data/app.db` and `backend/uploads/*`, then
-run `python3 seed.py` again to reset the demo feed.
+Both are gitignored. Set `STORAGE_DIR` to relocate them (the Docker image
+points it at `/data`, so a mounted volume holds both).
+
+To reset the demo feed, delete `backend/data/app.db` and `backend/uploads/*`,
+then run `python3 seed.py` again.
 
 The seed script draws its images with Pillow, and renders demo videos with
 ffmpeg if one is on `PATH` (otherwise those two posts are skipped and the feed
