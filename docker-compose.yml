@@ -1,0 +1,39 @@
+# docker-compose.yml — run drift on a plain Linux box (e.g. an Oracle Cloud
+# Always Free VM) using the same image Fly.io builds.
+#
+#   docker compose up -d --build
+#
+# nginx terminates TLS and proxies to 127.0.0.1:8080, so the app port is not
+# published to the internet directly.
+
+services:
+  app:
+    build: .
+    image: drift:local
+    restart: unless-stopped
+    stop_grace_period: 10s
+    ports:
+      # Loopback only: nginx is the public entry point.
+      - "127.0.0.1:8080:8080"
+    environment:
+      PORT: "8080"
+      STORAGE_DIR: /data
+      SEED_DEMO: "${SEED_DEMO:-1}"
+      WEB_CONCURRENCY: "1"
+      WEB_THREADS: "4"
+      # Uploads can be large (6 x 25 MB), so let gunicorn finish reading them.
+      WEB_TIMEOUT: "180"
+    volumes:
+      # SQLite database + uploaded media. Keep this directory backed up; it is
+      # the only stateful thing in the deployment.
+      - ./data:/data
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - import urllib.request,sys; sys.exit(0 if urllib.request.urlopen("http://127.0.0.1:8080/api/health", timeout=5).status == 200 else 1)
+      interval: 30s
+      timeout: 10s
+      start_period: 90s
+      retries: 3

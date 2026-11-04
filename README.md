@@ -62,6 +62,25 @@ it sleep when idle; the first request after a sleep takes a few seconds, and
   animated GIF and text. Add `apt-get install -y ffmpeg` to the Dockerfile if
   you also want the two seeded video posts.
 
+## Deploy on a free VM (Oracle Cloud Always Free)
+
+The same `Dockerfile` runs anywhere Docker does. A `docker-compose.yml` at the
+repo root builds the image, keeps the database and uploads in `./data`, and
+publishes the app on `127.0.0.1:8080` behind nginx.
+
+Oracle's Always Free tier gives an Ampere ARM VM with 2 OCPU / 12 GB RAM and
+200 GB of block storage, which is enough for a real media feed. The full
+walkthrough — VM shape, Security List rules, the guest firewall gotcha, TLS —
+is in [`deploy/oracle/README.md`](deploy/oracle/README.md).
+
+```bash
+# on the VM, after cloning this repo
+sudo DOMAIN=drift.example.com EMAIL=you@example.com ./deploy/oracle/bootstrap.sh
+```
+
+Subsequent deploys are `./deploy/oracle/update.sh` (git pull, rebuild, health
+check).
+
 ## What the app does
 
 - **Composer** at the top of the feed: text plus up to 6 photos/videos, upload

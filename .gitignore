@@ -6,3 +6,6 @@ __pycache__/
 *.pyc
 .env
 .DS_Store
+
+# docker compose bind mount for VM deploys
+/data/
